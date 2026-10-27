@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ever's Background Eraser v2 — transparent PNG + SVG</title>
+<title>Ever's Background Eraser v2.2 — transparent PNG + SVG</title>
 <meta name="description" content="Remove the background from any photo, right on your device. Free, no account, nothing uploads. Works even if the AI model cannot load, thanks to offline Quick Erase.">
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#1e1033">
@@ -61,12 +61,12 @@
 </head>
 <body>
 <div class="wrap">
-  <span class="badge">v2 — fixed: this page works even if the AI cannot load</span>
+  <span class="badge">v2.2 — Illustration erase added: for cartoons with colorful backgrounds</span>
   <h1>🫧 Ever's <span>Background Eraser</span></h1>
   <p class="sub">Drop in a photo, erase the background, download a transparent PNG or a real vector SVG. Free, no account, and your images never leave this device.</p>
   <ol class="steps">
     <li><b>1.</b> Choose an image</li>
-    <li><b>2.</b> AI remove, or Quick Erase for plain backgrounds</li>
+    <li><b>2.</b> AI remove, Quick Erase for plain backgrounds, or Illustration erase for cartoons</li>
     <li><b>3.</b> Download PNG or SVG</li>
   </ol>
 
@@ -100,6 +100,7 @@
     </label>
     <button type="button" class="primary" id="removeBtn" disabled>✨ Remove background (AI)</button>
     <button type="button" class="darkbtn" id="quickBtn" disabled>🎨 Quick Erase (offline)</button>
+    <button type="button" class="darkbtn" id="illustBtn" disabled>🖌️ Illustration erase (offline)</button>
   </div>
 
   <div class="pickrow">
@@ -107,9 +108,10 @@
     <span id="swatch" title="Picked background color"></span>
     <span id="pickedLabel" class="note">Not picked yet — tap your photo, or use the corner color.</span>
     <button type="button" class="darkbtn" id="cornerBtn" disabled>Use corner color</button>
-    <label class="note">Tolerance <input type="range" id="tolerance" min="10" max="120" value="36"> <span id="tolVal">36</span></label>
+    <label class="note">Tolerance <input type="range" id="tolerance" min="10" max="120" value="24"> <span id="tolVal">24</span></label>
   </div>
-  <p class="note">Quick Erase is for plain / solid backgrounds (white studio shots, plain walls, solid colors). Tap the background in your photo to pick its color, then tap Quick Erase. It runs entirely offline, no download, no waiting. For busy backgrounds or people, use AI first.</p>
+  <p class="note">Quick Erase is for plain / solid backgrounds (white studio shots, plain walls, solid colors). Tap the background in your photo to pick its color, then tap Quick Erase. It runs entirely offline, no download, no waiting. It only removes background that is connected to the edges of the photo — it will not erase parts of your subject just because they happen to be the same color as the background (like a white shoe sole on a white background). For busy backgrounds or people, use AI first.</p>
+  <p class="note">Illustration erase is for flat illustrations and cartoons with a colorful background — like teal, blue, and purple waves behind a person. It removes only teal/blue/purple background colors that are connected to the edges, and keeps skin, clothing, and hair, even if they are a different color. It runs entirely offline, no download. Do not use it on real photos — use AI for photos.</p>
 
   <div id="progressWrap">
     <div id="progressTrack"><div id="progressBar"></div></div>
@@ -1380,7 +1382,7 @@ if(typeof define === 'function' && define.amd){
 var $ = function(id){ return document.getElementById(id); };
 var dropzone = $('dropzone'), fileInput = $('fileInput'), pickBtn = $('pickBtn');
 var origPreview = $('origPreview'), cutoutPreview = $('cutoutPreview'), cutoutWrap = $('cutoutWrap');
-var removeBtn = $('removeBtn'), quickBtn = $('quickBtn'), cornerBtn = $('cornerBtn');
+var removeBtn = $('removeBtn'), quickBtn = $('quickBtn'), cornerBtn = $('cornerBtn'), illustBtn = $('illustBtn');
 var statusEl = $('status'), progressBar = $('progressBar');
 var resultsEl = $('results'), transparencyNote = $('transparencyNote');
 var dlPng = $('dlPng'), dlSvg = $('dlSvg'), openPng = $('openPng'), svgNote = $('svgNote'), svgPreview = $('svgPreview');
@@ -1465,9 +1467,9 @@ function handleFile(file){
     pickedColor = null; swatch.style.background = 'transparent';
     pickedLabel.textContent = 'Not picked yet — tap your photo, or use the corner color.';
     $('fileName').textContent = 'Selected: ' + file.name + ' (' + origCanvas.width + '×' + origCanvas.height + 'px for processing)';
-    removeBtn.disabled = false; quickBtn.disabled = false; cornerBtn.disabled = false;
+    removeBtn.disabled = false; quickBtn.disabled = false; cornerBtn.disabled = false; illustBtn.disabled = false;
     setProgress(0);
-    setStatus('Photo loaded. Tap “Remove background (AI)” for busy photos, or tap the background in your photo and use Quick Erase for plain backgrounds.');
+    setStatus('Photo loaded. Tap “Remove background (AI)” for busy photos, Quick Erase for plain backgrounds, or Illustration erase for cartoons with a colorful background.');
   }).catch(function(err){
     setStatus('Could not load that photo: ' + err.message, true);
     setProgress(0);
@@ -1524,32 +1526,173 @@ function runQuickErase(){
     setStatus('Tap the background in your photo first, or tap “Use corner color”, then Quick Erase.', true);
     return;
   }
-  var tol = parseInt(toleranceEl.value, 10) || 36;
-  setStatus('Quick Erase working — this runs offline, no download.');
+  setStatus('Quick Erase working — this runs offline, no download. It only removes background connected to the edges, so it will not eat your subject.');
   setProgress(30);
-  var w = origCanvas.width, h = origCanvas.height;
-  var octx = origCanvas.getContext('2d', { willReadFrequently: true });
-  var src = octx.getImageData(0, 0, w, h);
-  var out = octx.createImageData(w, h);
-  var sd = src.data, od = out.data;
-  var pr = pickedColor.r, pg = pickedColor.g, pb = pickedColor.b;
-  for (var i = 0; i < sd.length; i += 4){
-    var dr = sd[i] - pr, dg = sd[i+1] - pg, db = sd[i+2] - pb;
-    var dist = Math.sqrt(dr*dr + dg*dg + db*db);
-    var alpha;
-    if (dist <= tol) alpha = 0;
-    else if (dist <= tol + 40) alpha = Math.round(255 * (dist - tol) / 40);
-    else alpha = 255;
-    od[i] = sd[i]; od[i+1] = sd[i+1]; od[i+2] = sd[i+2]; od[i+3] = alpha;
-  }
-  var c = document.createElement('canvas'); c.width = w; c.height = h;
-  c.getContext('2d').putImageData(out, 0, 0);
-  setProgress(80);
-  showCutout(c).then(function(){
-    setStatus('Quick Erase done! If it took too much or too little, change the tolerance and tap Quick Erase again — it always re-runs from your original photo.');
-  });
+  /* Defer the heavy loop so the status above actually paints first. */
+  setTimeout(function(){
+    var tol = parseInt(toleranceEl.value, 10) || 24;
+    var tol2 = tol * tol;
+    var w = origCanvas.width, h = origCanvas.height;
+    var octx = origCanvas.getContext('2d', { willReadFrequently: true });
+    var src = octx.getImageData(0, 0, w, h);
+    var sd = src.data;
+    var pr = pickedColor.r, pg = pickedColor.g, pb = pickedColor.b;
+    /* Flood fill from the borders only. A pixel is removed only if it
+       matches the picked background color AND is connected, step by step,
+       to the edge of the photo through other matching pixels. Subject
+       pixels that happen to share the background color, but are enclosed
+       by the subject, are never reached and stay fully opaque. */
+    var visited = new Uint8Array(w * h);
+    var removed = new Uint8Array(w * h);
+    var stack = [];
+    function trySeed(x, y){
+      var idx = y * w + x;
+      if (visited[idx]) return;
+      var i = idx * 4;
+      var dr = sd[i] - pr, dg = sd[i+1] - pg, db = sd[i+2] - pb;
+      if (dr*dr + dg*dg + db*db <= tol2){ visited[idx] = 1; removed[idx] = 1; stack.push(idx); }
+      else { visited[idx] = 1; }
+    }
+    for (var x = 0; x < w; x++){ trySeed(x, 0); trySeed(x, h - 1); }
+    for (var y = 0; y < h; y++){ trySeed(0, y); trySeed(w - 1, y); }
+    while (stack.length){
+      var cur = stack.pop();
+      var cx = cur % w, cy = Math.floor(cur / w);
+      var neighbours = [];
+      if (cx > 0) neighbours.push(cur - 1);
+      if (cx < w - 1) neighbours.push(cur + 1);
+      if (cy > 0) neighbours.push(cur - w);
+      if (cy < h - 1) neighbours.push(cur + w);
+      for (var n = 0; n < neighbours.length; n++){
+        var ni = neighbours[n];
+        if (visited[ni]) continue;
+        visited[ni] = 1;
+        var j = ni * 4;
+        var dr2 = sd[j] - pr, dg2 = sd[j+1] - pg, db2 = sd[j+2] - pb;
+        if (dr2*dr2 + dg2*dg2 + db2*db2 <= tol2){ removed[ni] = 1; stack.push(ni); }
+      }
+    }
+    var removedCount = 0;
+    for (var k = 0; k < removed.length; k++) if (removed[k]) removedCount++;
+    var out = octx.createImageData(w, h);
+    var od = out.data;
+    for (var p = 0; p < sd.length; p += 4){
+      var pix = p / 4;
+      var alpha = 255;
+      if (removed[pix]) alpha = 0;
+      else {
+        /* 1px feather: kept pixels touching removed background get softer edges. */
+        var px = pix % w, py = Math.floor(pix / w);
+        if ((px > 0 && removed[pix - 1]) || (px < w - 1 && removed[pix + 1]) ||
+            (py > 0 && removed[pix - w]) || (py < h - 1 && removed[pix + w])) alpha = 180;
+      }
+      od[p] = sd[p]; od[p+1] = sd[p+1]; od[p+2] = sd[p+2]; od[p+3] = alpha;
+    }
+    var c = document.createElement('canvas'); c.width = w; c.height = h;
+    c.getContext('2d').putImageData(out, 0, 0);
+    setProgress(80);
+    var pctRemoved = Math.round(removedCount / (w * h) * 100);
+    showCutout(c).then(function(){
+      if (pctRemoved > 90){
+        setStatus('Quick Erase removed ' + pctRemoved + '% — almost everything. That picked color probably matches your subject, or the background is not plain. Try a lower tolerance, tap a different background spot, or use AI instead. It always re-runs from your original photo.', true);
+      } else if (pctRemoved < 5){
+        setStatus('Quick Erase removed only ' + pctRemoved + '% — that color does not match the background at the edges. Tap a background spot (not the subject), or use corner color, then try again. Or use AI for busy backgrounds.', true);
+      } else {
+        setStatus('Quick Erase done! Removed ' + pctRemoved + '% (background only — subject parts that share the background color are kept). If it took too much or too little, change the tolerance and tap Quick Erase again — it always re-runs from your original photo.');
+      }
+    });
+  }, 30);
 }
 quickBtn.addEventListener('click', runQuickErase);
+
+function runIllustrationErase(){
+  if (!origCanvas){ setStatus('Pick a photo first.', true); return; }
+  setStatus('Illustration erase working — this runs offline, no download. It removes teal/blue/purple background connected to the edges, and keeps skin, clothing, and hair.');
+  setProgress(30);
+  setTimeout(function(){
+    var w = origCanvas.width, h = origCanvas.height;
+    var octx = origCanvas.getContext('2d', { willReadFrequently: true });
+    var src = octx.getImageData(0, 0, w, h);
+    var sd = src.data;
+    /* Background mask: teal/blue/purple hues (140-305 degrees), saturated, not black.
+       This matches flat illustrations where skin is warm cream, clothing is maroon/red,
+       and hair is black — all outside this hue range. Photo AI fails on such pictures
+       because it treats pale skin and flat clothing as background; this hue rule does not. */
+    var isBg = new Uint8Array(w * h);
+    for (var i = 0, p = 0; i < sd.length; i += 4, p++){
+      var r = sd[i] / 255, g = sd[i+1] / 255, b = sd[i+2] / 255;
+      var mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+      var hue = 0, sat = mx === 0 ? 0 : d / mx;
+      if (d !== 0){
+        if (mx === r) hue = ((g - b) / d) % 6;
+        else if (mx === g) hue = (b - r) / d + 2;
+        else hue = (r - g) / d + 4;
+        hue *= 60; if (hue < 0) hue += 360;
+      }
+      if (hue >= 140 && hue <= 305 && sat >= 0.24 && mx >= 0.20) isBg[p] = 1;
+    }
+    /* Outer ring (3% of the smaller side) counts as background, so a pink or dark
+       frame around the illustration does not block the flood fill. */
+    var ring = Math.max(10, Math.round(Math.min(w, h) * 0.03));
+    var visited = new Uint8Array(w * h);
+    var removed = new Uint8Array(w * h);
+    var stack = [];
+    function inRing(x, y){ return x < ring || x >= w - ring || y < ring || y >= h - ring; }
+    function trySeed(x, y){
+      var idx = y * w + x;
+      if (visited[idx]) return;
+      visited[idx] = 1;
+      if (isBg[idx] || inRing(x, y)){ removed[idx] = 1; stack.push(idx); }
+    }
+    for (var x = 0; x < w; x++){ trySeed(x, 0); trySeed(x, h - 1); }
+    for (var y = 0; y < h; y++){ trySeed(0, y); trySeed(w - 1, y); }
+    while (stack.length){
+      var cur = stack.pop();
+      var cx = cur % w, cy = Math.floor(cur / w);
+      var neighbours = [];
+      if (cx > 0) neighbours.push(cur - 1);
+      if (cx < w - 1) neighbours.push(cur + 1);
+      if (cy > 0) neighbours.push(cur - w);
+      if (cy < h - 1) neighbours.push(cur + w);
+      for (var n = 0; n < neighbours.length; n++){
+        var ni = neighbours[n];
+        if (visited[ni]) continue;
+        visited[ni] = 1;
+        var nx = ni % w, ny = Math.floor(ni / w);
+        if (isBg[ni] || inRing(nx, ny)){ removed[ni] = 1; stack.push(ni); }
+      }
+    }
+    var removedCount = 0;
+    for (var k = 0; k < removed.length; k++) if (removed[k]) removedCount++;
+    var out = octx.createImageData(w, h);
+    var od = out.data;
+    for (var q = 0; q < sd.length; q += 4){
+      var pix = q / 4;
+      var alpha = 255;
+      if (removed[pix]) alpha = 0;
+      else {
+        var px = pix % w, py = Math.floor(pix / w);
+        if ((px > 0 && removed[pix - 1]) || (px < w - 1 && removed[pix + 1]) ||
+            (py > 0 && removed[pix - w]) || (py < h - 1 && removed[pix + w])) alpha = 180;
+      }
+      od[q] = sd[q]; od[q+1] = sd[q+1]; od[q+2] = sd[q+2]; od[q+3] = alpha;
+    }
+    var c = document.createElement('canvas'); c.width = w; c.height = h;
+    c.getContext('2d').putImageData(out, 0, 0);
+    setProgress(80);
+    var pctRemoved = Math.round(removedCount / (w * h) * 100);
+    showCutout(c).then(function(){
+      if (pctRemoved > 90){
+        setStatus('Illustration erase removed ' + pctRemoved + '% — almost everything. This picture may not be a flat illustration with a teal/blue/purple background. Try AI instead, or use Quick Erase for a plain background.', true);
+      } else if (pctRemoved < 5){
+        setStatus('Illustration erase removed only ' + pctRemoved + '% — no teal/blue/purple background was found at the edges. This mode is only for illustrations with a colorful background. Try AI for photos.', true);
+      } else {
+        setStatus('Illustration erase done! Removed ' + pctRemoved + '% (background only — skin, clothing, and hair are kept). Download it below, or run it again — it always re-runs from your original photo.');
+      }
+    });
+  }, 30);
+}
+illustBtn.addEventListener('click', runIllustrationErase);
 
 function withTimeout(promise, ms, label){
   return Promise.race([
@@ -1559,7 +1702,7 @@ function withTimeout(promise, ms, label){
 }
 removeBtn.addEventListener('click', function(){
   if (!origCanvas) return;
-  removeBtn.disabled = true; quickBtn.disabled = true;
+  removeBtn.disabled = true; quickBtn.disabled = true; illustBtn.disabled = true;
   resultsEl.hidden = true;
   setProgress(2);
   setStatus('AI starting… First run downloads the free model (about 40MB for Faster), then it is cached. If this fails, Quick Erase below still works.');
@@ -1632,7 +1775,7 @@ removeBtn.addEventListener('click', function(){
     setStatus('AI could not finish: ' + (err && err.message ? err.message : err) + ' — Quick Erase below still works offline for plain backgrounds. Try it, or try AI again on Wi-Fi.', true);
     setProgress(0);
   }).finally(function(){
-    removeBtn.disabled = false; quickBtn.disabled = false;
+    removeBtn.disabled = false; quickBtn.disabled = false; illustBtn.disabled = false;
   });
 });
 
