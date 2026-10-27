@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ever's Background Eraser v2 — transparent PNG + SVG</title>
+<meta name="description" content="Remove the background from any photo, right on your device. Free, no account, nothing uploads. Works even if the AI model cannot load, thanks to offline Quick Erase.">
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#1e1033">
 <link rel="icon" href="./icon-192.png">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ever's Background Eraser — transparent PNG + SVG</title>
 <style>
   :root{color-scheme:dark}
   *{box-sizing:border-box}
@@ -15,19 +16,20 @@
   h1{margin:0 0 4px;font-size:2rem}
   h1 span{color:#ff8ac2}
   .sub{margin:0 0 20px;color:#d9c2e8}
+  .badge{display:inline-block;background:#121e3a;border:1px solid #ff8ac2;color:#ff8ac2;border-radius:999px;padding:6px 12px;font-size:.85rem;font-weight:700;margin-bottom:14px}
   .steps{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 20px;padding:0;list-style:none}
   .steps li{background:#121e3a;border:1px solid #3a4a6b;border-radius:999px;padding:8px 14px;font-size:.92rem}
   .steps li b{color:#ff8ac2}
-  #dropzone{border:2px dashed #ff8ac2;border-radius:24px;padding:38px 20px;text-align:center;background:#121e3a;cursor:pointer;transition:.15s}
-  #dropzone.drag{border-color:#fff;background:#1a2a4a}
+  #dropzone{border:2px dashed #ff8ac2;border-radius:24px;padding:38px 20px;text-align:center;background:#121e3a;cursor:pointer}
   #dropzone p{margin:0 0 12px;font-size:1.05rem}
   button,.btn{appearance:none;border:none;border-radius:999px;padding:13px 24px;font-size:1rem;font-weight:800;cursor:pointer}
   .primary{background:linear-gradient(135deg,#ff2f9f,#ff5fb8);color:#fff}
-  .primary:disabled{opacity:.45;cursor:not-allowed}
+  .primary:disabled,.darkbtn:disabled{opacity:.45;cursor:not-allowed}
   .darkbtn{background:#1a2a4a;color:#fff;border:1px solid #3a4a6b}
   .controls{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin:22px 0}
   .controls label{display:flex;flex-direction:column;gap:6px;font-size:.85rem;color:#d9c2e8}
-  .controls select{background:#1a2a4a;color:#fff;border:1px solid #3a4a6b;border-radius:12px;padding:11px 12px;font-size:1rem}
+  .controls select,.controls input[type=range]{background:#1a2a4a;color:#fff;border:1px solid #3a4a6b;border-radius:12px;padding:11px 12px;font-size:1rem}
+  .controls input[type=range]{padding:0}
   .previews{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px}
   @media(max-width:640px){.previews{grid-template-columns:1fr}}
   figure{margin:0;background:#121e3a;border:1px solid #3a4a6b;border-radius:20px;padding:14px}
@@ -41,31 +43,35 @@
   #progressTrack{height:12px;background:#121e3a;border:1px solid #3a4a6b;border-radius:999px;overflow:hidden}
   #progressBar{height:100%;width:0%;background:linear-gradient(90deg,#ff2f9f,#5eb9ff);transition:width .2s}
   #status{margin-top:8px;color:#d9c2e8;min-height:1.4em}
+  #status.err{color:#ffb4c8;font-weight:700}
   #results{margin-top:22px;background:#121e3a;border:1px solid #3a4a6b;border-radius:20px;padding:20px}
   #results h2{margin:0 0 8px}
   #results .dlrow{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}
   #svgPreview{background:#1c1c28;border-radius:12px;padding:10px;overflow:auto}
   #svgPreview svg{max-width:100%;height:auto;display:block;margin:0 auto}
   .note{color:#d9c2e8;font-size:.9rem}
+  .pickrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:14px 0}
+  #swatch{width:36px;height:36px;border-radius:10px;border:2px solid #fff;display:inline-block;vertical-align:middle}
+  #origPreview.tapmode{cursor:crosshair;outline:3px solid #ff8ac2;outline-offset:4px}
+  details{margin-top:22px;background:#121e3a;border:1px solid #3a4a6b;border-radius:20px;padding:16px 20px}
+  details summary{cursor:pointer;font-weight:800}
   footer{margin-top:30px;color:#9d8bb0;font-size:.85rem;line-height:1.5}
   footer a{color:#ff8ac2}
 </style>
-<script type="importmap">
-{ "imports": { "@imgly/background-removal": "https://cdn.jsdelivr.net/npm/@imgly/background-removal/+esm" } }
-</script>
 </head>
 <body>
 <div class="wrap">
+  <span class="badge">v2 — fixed: this page works even if the AI cannot load</span>
   <h1>🫧 Ever's <span>Background Eraser</span></h1>
   <p class="sub">Drop in a photo, erase the background, download a transparent PNG or a real vector SVG. Free, no account, and your images never leave this device.</p>
   <ol class="steps">
-    <li><b>1.</b> Drop an image</li>
-    <li><b>2.</b> Tap Remove background</li>
+    <li><b>1.</b> Choose an image</li>
+    <li><b>2.</b> AI remove, or Quick Erase for plain backgrounds</li>
     <li><b>3.</b> Download PNG or SVG</li>
   </ol>
 
   <div id="dropzone" role="button" tabindex="0" aria-label="Choose an image">
-    <p>📷 Drop an image here, or choose one from your device</p>
+    <p>📷 Tap here to choose a photo from your device</p>
     <button type="button" class="darkbtn" id="pickBtn">Choose image</button>
     <input type="file" id="fileInput" accept="image/*" hidden>
     <p class="note" id="fileName"></p>
@@ -74,8 +80,8 @@
   <div class="controls">
     <label>AI model
       <select id="model">
-        <option value="medium" selected>Quality (best edges)</option>
-        <option value="small">Faster (smaller download)</option>
+        <option value="small" selected>Faster (smaller download, best on phones)</option>
+        <option value="medium">Quality (best edges, bigger download)</option>
       </select>
     </label>
     <label>Preview background
@@ -92,18 +98,28 @@
         <option value="32">Detailed (32 colors)</option>
       </select>
     </label>
-    <button type="button" class="primary" id="removeBtn" disabled>✨ Remove background</button>
+    <button type="button" class="primary" id="removeBtn" disabled>✨ Remove background (AI)</button>
+    <button type="button" class="darkbtn" id="quickBtn" disabled>🎨 Quick Erase (offline)</button>
   </div>
+
+  <div class="pickrow">
+    <span>Quick Erase background color:</span>
+    <span id="swatch" title="Picked background color"></span>
+    <span id="pickedLabel" class="note">Not picked yet — tap your photo, or use the corner color.</span>
+    <button type="button" class="darkbtn" id="cornerBtn" disabled>Use corner color</button>
+    <label class="note">Tolerance <input type="range" id="tolerance" min="10" max="120" value="36"> <span id="tolVal">36</span></label>
+  </div>
+  <p class="note">Quick Erase is for plain / solid backgrounds (white studio shots, plain walls, solid colors). Tap the background in your photo to pick its color, then tap Quick Erase. It runs entirely offline, no download, no waiting. For busy backgrounds or people, use AI first.</p>
 
   <div id="progressWrap">
     <div id="progressTrack"><div id="progressBar"></div></div>
-    <div id="status" aria-live="polite">Pick an image to start.</div>
+    <div id="status" aria-live="polite">Pick an image to start. If the buttons ever do nothing, reload this page — this version will tell you what went wrong instead of going silent.</div>
   </div>
 
   <div class="previews">
     <figure>
-      <img id="origPreview" alt="">
-      <figcaption>Original</figcaption>
+      <img id="origPreview" alt="Original photo. Tap it to pick a background color for Quick Erase.">
+      <figcaption>Original — tap it to pick a Quick Erase color</figcaption>
     </figure>
     <figure>
       <div id="cutoutWrap" class="checker"><img id="cutoutPreview" alt=""></div>
@@ -117,14 +133,23 @@
     <div class="dlrow">
       <button type="button" class="primary" id="dlPng">⬇ Download transparent PNG</button>
       <button type="button" class="primary" id="dlSvg">⬇ Download SVG vector</button>
+      <button type="button" class="darkbtn" id="openPng">Open PNG in a new tab</button>
     </div>
     <p id="svgNote" class="note"></p>
     <div id="svgPreview"></div>
   </div>
 
+  <details>
+    <summary>Having trouble? Tap here</summary>
+    <p class="note">AI needs the internet the first time only, to download the free model (about 40MB for Faster, 80MB for Quality), then it is cached in your browser. If AI says it could not load, your connection or browser blocked that download — Quick Erase still works, fully offline, for plain backgrounds.</p>
+    <p class="note">Big phone photos are resized to 2048px on the longest side before processing, so the app does not run out of memory. That is still sharp for posts, shops and merch previews.</p>
+    <p class="note">If you installed the old version as an app and it still looks old, use the button below to clear its stored copy and reload fresh.</p>
+    <button type="button" class="darkbtn" id="freshBtn">Reload fresh (clear stored copy)</button>
+  </details>
+
   <footer>
-    First run downloads the free AI model once (about 80MB for Quality, 40MB for Faster) and caches it in your browser, so later runs are much quicker. Everything after that runs on your device — no uploads, no account, no cost, ever.<br>
-    Background removal by <a href="https://github.com/imgly/background-removal-js" target="_blank" rel="noopener">@imgly/background-removal</a> (free, open source). Vector tracing by ImageTracer (free, open source). Best for photos, products, logos and people — very wispy hair or glass can come out a little rough, and busy photos trace into chunkier SVGs than clean logos do.
+    Everything runs on your device — no uploads, no account, no cost, ever.<br>
+    AI background removal by <a href="https://github.com/imgly/background-removal-js" target="_blank" rel="noopener">@imgly/background-removal</a> (free, open source), loaded only when you tap AI, so a failed load can never break the rest of the page. Vector tracing by ImageTracer (free, open source). Best for photos, products, logos and people — very wispy hair or glass can come out a little rough, and busy photos trace into chunkier SVGs than clean logos do.
   </footer>
 </div>
 
@@ -1347,178 +1372,333 @@ if(typeof define === 'function' && define.amd){
 
 })();
 </script>
-<script type="module">
-import { removeBackground } from '@imgly/background-removal';
 
-const $ = id => document.getElementById(id);
-const dropzone = $('dropzone'), fileInput = $('fileInput'), pickBtn = $('pickBtn');
-const origPreview = $('origPreview'), cutoutPreview = $('cutoutPreview'), cutoutWrap = $('cutoutWrap');
-const removeBtn = $('removeBtn'), statusEl = $('status'), progressBar = $('progressBar');
-const resultsEl = $('results'), transparencyNote = $('transparencyNote');
-const dlPng = $('dlPng'), dlSvg = $('dlSvg'), svgNote = $('svgNote'), svgPreview = $('svgPreview');
+<script>
+"use strict";
+/* v2 plain script — deliberately NOT a module, so a failed AI import
+   cannot kill the file picker, preview, or Quick Erase. */
+var $ = function(id){ return document.getElementById(id); };
+var dropzone = $('dropzone'), fileInput = $('fileInput'), pickBtn = $('pickBtn');
+var origPreview = $('origPreview'), cutoutPreview = $('cutoutPreview'), cutoutWrap = $('cutoutWrap');
+var removeBtn = $('removeBtn'), quickBtn = $('quickBtn'), cornerBtn = $('cornerBtn');
+var statusEl = $('status'), progressBar = $('progressBar');
+var resultsEl = $('results'), transparencyNote = $('transparencyNote');
+var dlPng = $('dlPng'), dlSvg = $('dlSvg'), openPng = $('openPng'), svgNote = $('svgNote'), svgPreview = $('svgPreview');
+var swatch = $('swatch'), pickedLabel = $('pickedLabel'), toleranceEl = $('tolerance'), tolVal = $('tolVal');
 
-let origFile = null, origBase = 'image', cutoutBlob = null, cutoutURL = null, cutoutImageData = null;
+var origFile = null, origBase = 'image';
+var origCanvas = null; /* original, capped at 2048px longest side */
+var cutoutCanvas = null, cutoutBlob = null, cutoutImageData = null;
+var pickedColor = null;
 
-function setStatus(msg){ statusEl.textContent = msg; }
-function setProgress(pct){ progressBar.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
-
-function loadTracer(){
-  // Vector tracer is now inlined in this file (public-domain ImageTracer 1.2.6),
-  // so it is always present — no CDN fetch, no retry caching bug.
-  return Promise.resolve(!!window.ImageTracer);
+function setStatus(msg, isErr){
+  statusEl.textContent = msg;
+  statusEl.className = isErr ? 'err' : '';
 }
-loadTracer(); // warm up in the background while the user picks an image
+function setProgress(pct){ progressBar.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
+window.addEventListener('error', function(e){
+  if (statusEl) setStatus('Something went wrong in the page: ' + (e.message || 'unknown error') + ' — try Quick Erase, or reload the page.', true);
+});
+window.addEventListener('unhandledrejection', function(e){
+  if (statusEl) setStatus('Something went wrong: ' + ((e.reason && e.reason.message) || e.reason || 'unknown error') + ' — try Quick Erase, or reload the page.', true);
+});
 
+function loadImageFromBlob(blob){
+  return new Promise(function(res, rej){
+    var url = URL.createObjectURL(blob);
+    var img = new Image();
+    img.onload = function(){ URL.revokeObjectURL(url); res(img); };
+    img.onerror = function(){ URL.revokeObjectURL(url); rej(new Error('Could not read that image. Try a JPG or PNG.')); };
+    img.src = url;
+  });
+}
+function canvasFromImage(img, maxSide){
+  var w = img.naturalWidth, h = img.naturalHeight;
+  var s = 1;
+  if (maxSide && Math.max(w, h) > maxSide) s = maxSide / Math.max(w, h);
+  var c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(w * s)); c.height = Math.max(1, Math.round(h * s));
+  var ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, c.width, c.height);
+  return c;
+}
+function canvasToBlob(canvas){
+  return new Promise(function(res, rej){
+    canvas.toBlob(function(b){ b ? res(b) : rej(new Error('Could not make a PNG from the image.')); }, 'image/png');
+  });
+}
+function showCutout(canvas){
+  cutoutCanvas = canvas;
+  var ctx = canvas.getContext('2d', { willReadFrequently: true });
+  cutoutImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  var d = cutoutImageData.data, transparent = 0;
+  for (var i = 3; i < d.length; i += 4) if (d[i] < 128) transparent++;
+  var pct = Math.round(transparent / (d.length / 4) * 100);
+  return canvasToBlob(canvas).then(function(blob){
+    cutoutBlob = blob;
+    cutoutPreview.src = URL.createObjectURL(blob);
+    setProgress(100);
+    transparencyNote.textContent = 'Transparent pixels: ' + pct + '% of the image. ' +
+      (pct === 0 ? 'Hmm — nothing looks transparent, try the other method or a different photo.' :
+       pct > 90 ? 'That is mostly empty space — the subject may be small in the frame.' :
+       'Looking good — download it below.');
+    resultsEl.hidden = false;
+    return pct;
+  });
+}
 function handleFile(file){
   if (!file) return;
   if (file.type === 'image/svg+xml' || /\.svg$/i.test(file.name)){
-    setStatus('That is already an SVG — please pick a photo, PNG or JPG to cut out.');
+    setStatus('That is already an SVG — please pick a photo, PNG or JPG to cut out.', true);
     return;
   }
   origFile = file;
   origBase = file.name.replace(/\.[^.]+$/, '') || 'image';
-  const url = URL.createObjectURL(file);
-  origPreview.src = url;
-  cutoutPreview.removeAttribute('src');
-  cutoutBlob = null; cutoutImageData = null;
-  resultsEl.hidden = true; svgPreview.innerHTML = ''; svgNote.textContent = '';
-  $('fileName').textContent = 'Selected: ' + file.name;
-  removeBtn.disabled = false;
-  setProgress(0);
-  setStatus('Image loaded. Tap “Remove background” when you are ready.');
+  setStatus('Loading your photo…');
+  setProgress(5);
+  loadImageFromBlob(file).then(function(img){
+    origCanvas = canvasFromImage(img, 2048);
+    origPreview.src = URL.createObjectURL(file);
+    cutoutPreview.removeAttribute('src');
+    cutoutBlob = null; cutoutImageData = null; cutoutCanvas = null;
+    resultsEl.hidden = true; svgPreview.innerHTML = ''; svgNote.textContent = '';
+    pickedColor = null; swatch.style.background = 'transparent';
+    pickedLabel.textContent = 'Not picked yet — tap your photo, or use the corner color.';
+    $('fileName').textContent = 'Selected: ' + file.name + ' (' + origCanvas.width + '×' + origCanvas.height + 'px for processing)';
+    removeBtn.disabled = false; quickBtn.disabled = false; cornerBtn.disabled = false;
+    setProgress(0);
+    setStatus('Photo loaded. Tap “Remove background (AI)” for busy photos, or tap the background in your photo and use Quick Erase for plain backgrounds.');
+  }).catch(function(err){
+    setStatus('Could not load that photo: ' + err.message, true);
+    setProgress(0);
+  });
   fileInput.value = '';
 }
 
-pickBtn.addEventListener('click', e => { e.stopPropagation(); fileInput.click(); });
-dropzone.addEventListener('click', () => fileInput.click());
-dropzone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
-fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
-['dragenter','dragover'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add('drag'); }));
-['dragleave','drop'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove('drag'); }));
-dropzone.addEventListener('drop', e => handleFile(e.dataTransfer.files[0]));
+pickBtn.addEventListener('click', function(e){ e.stopPropagation(); fileInput.click(); });
+dropzone.addEventListener('click', function(){ fileInput.click(); });
+dropzone.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+fileInput.addEventListener('change', function(){ handleFile(fileInput.files[0]); });
+['dragenter','dragover'].forEach(function(ev){ dropzone.addEventListener(ev, function(e){ e.preventDefault(); dropzone.classList.add('drag'); }); });
+['dragleave','drop'].forEach(function(ev){ dropzone.addEventListener(ev, function(e){ e.preventDefault(); dropzone.classList.remove('drag'); }); });
+dropzone.addEventListener('drop', function(e){ handleFile(e.dataTransfer.files[0]); });
 
-$('bgToggle').addEventListener('change', e => {
+$('bgToggle').addEventListener('change', function(e){
   cutoutWrap.className = e.target.value === 'checker' ? 'checker' : e.target.value === 'dark' ? 'bgdark' : 'bglight';
+});
+toleranceEl.addEventListener('input', function(){ tolVal.textContent = toleranceEl.value; });
+
+function pickColorAt(clientX, clientY){
+  if (!origCanvas) return;
+  var rect = origPreview.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  var x = Math.floor((clientX - rect.left) / rect.width * origCanvas.width);
+  var y = Math.floor((clientY - rect.top) / rect.height * origCanvas.height);
+  x = Math.max(0, Math.min(origCanvas.width - 1, x));
+  y = Math.max(0, Math.min(origCanvas.height - 1, y));
+  var ctx = origCanvas.getContext('2d', { willReadFrequently: true });
+  var px = ctx.getImageData(x, y, 1, 1).data;
+  pickedColor = { r: px[0], g: px[1], b: px[2] };
+  swatch.style.background = 'rgb(' + px[0] + ',' + px[1] + ',' + px[2] + ')';
+  pickedLabel.textContent = 'Picked rgb(' + px[0] + ',' + px[1] + ',' + px[2] + ') — now tap Quick Erase.';
+  origPreview.classList.add('tapmode');
+  setStatus('Background color picked. Tap Quick Erase to remove everything close to that color. Adjust tolerance if it takes too much or too little.');
+}
+origPreview.addEventListener('click', function(e){ pickColorAt(e.clientX, e.clientY); });
+
+cornerBtn.addEventListener('click', function(){
+  if (!origCanvas) return;
+  var ctx = origCanvas.getContext('2d', { willReadFrequently: true });
+  var n = Math.min(8, origCanvas.width, origCanvas.height);
+  var d = ctx.getImageData(0, 0, n, n).data, r = 0, g = 0, b = 0, cnt = 0;
+  for (var i = 0; i < d.length; i += 4){ r += d[i]; g += d[i+1]; b += d[i+2]; cnt++; }
+  pickedColor = { r: Math.round(r/cnt), g: Math.round(g/cnt), b: Math.round(b/cnt) };
+  swatch.style.background = 'rgb(' + pickedColor.r + ',' + pickedColor.g + ',' + pickedColor.b + ')';
+  pickedLabel.textContent = 'Corner color rgb(' + pickedColor.r + ',' + pickedColor.g + ',' + pickedColor.b + ') — now tap Quick Erase.';
+  setStatus('Corner color picked. Tap Quick Erase to remove everything close to that color.');
+});
+
+function runQuickErase(){
+  if (!origCanvas){ setStatus('Pick a photo first.', true); return; }
+  if (!pickedColor){
+    setStatus('Tap the background in your photo first, or tap “Use corner color”, then Quick Erase.', true);
+    return;
+  }
+  var tol = parseInt(toleranceEl.value, 10) || 36;
+  setStatus('Quick Erase working — this runs offline, no download.');
+  setProgress(30);
+  var w = origCanvas.width, h = origCanvas.height;
+  var octx = origCanvas.getContext('2d', { willReadFrequently: true });
+  var src = octx.getImageData(0, 0, w, h);
+  var out = octx.createImageData(w, h);
+  var sd = src.data, od = out.data;
+  var pr = pickedColor.r, pg = pickedColor.g, pb = pickedColor.b;
+  for (var i = 0; i < sd.length; i += 4){
+    var dr = sd[i] - pr, dg = sd[i+1] - pg, db = sd[i+2] - pb;
+    var dist = Math.sqrt(dr*dr + dg*dg + db*db);
+    var alpha;
+    if (dist <= tol) alpha = 0;
+    else if (dist <= tol + 40) alpha = Math.round(255 * (dist - tol) / 40);
+    else alpha = 255;
+    od[i] = sd[i]; od[i+1] = sd[i+1]; od[i+2] = sd[i+2]; od[i+3] = alpha;
+  }
+  var c = document.createElement('canvas'); c.width = w; c.height = h;
+  c.getContext('2d').putImageData(out, 0, 0);
+  setProgress(80);
+  showCutout(c).then(function(){
+    setStatus('Quick Erase done! If it took too much or too little, change the tolerance and tap Quick Erase again — it always re-runs from your original photo.');
+  });
+}
+quickBtn.addEventListener('click', runQuickErase);
+
+function withTimeout(promise, ms, label){
+  return Promise.race([
+    promise,
+    new Promise(function(_, rej){ setTimeout(function(){ rej(new Error(label + ' timed out after ' + Math.round(ms/1000) + ' seconds.')); }, ms); })
+  ]);
+}
+removeBtn.addEventListener('click', function(){
+  if (!origCanvas) return;
+  removeBtn.disabled = true; quickBtn.disabled = true;
+  resultsEl.hidden = true;
+  setProgress(2);
+  setStatus('AI starting… First run downloads the free model (about 40MB for Faster), then it is cached. If this fails, Quick Erase below still works.');
+  var model = $('model').value;
+  /* Build a 1024px working copy from origCanvas */
+  var maxSide = 1024, s = 1;
+  if (Math.max(origCanvas.width, origCanvas.height) > maxSide) s = maxSide / Math.max(origCanvas.width, origCanvas.height);
+  var work = document.createElement('canvas');
+  work.width = Math.round(origCanvas.width * s); work.height = Math.round(origCanvas.height * s);
+  work.getContext('2d').drawImage(origCanvas, 0, 0, work.width, work.height);
+  canvasToBlob(work).then(function(workBlob){
+    var urls = [
+      'https://cdn.jsdelivr.net/npm/@imgly/background-removal/+esm',
+      'https://unpkg.com/@imgly/background-removal@latest/+esm'
+    ];
+    function tryUrl(idx){
+      if (idx >= urls.length) return Promise.reject(new Error('The AI library could not be loaded from either download source. Check your connection, then try again or use Quick Erase.'));
+      setStatus('Loading the AI library… (source ' + (idx + 1) + ' of 2)');
+      return withTimeout(import(urls[idx]), 90000, 'AI library download').then(function(mod){
+        if (!mod || !mod.removeBackground) throw new Error('AI library loaded but had no removeBackground function.');
+        return mod;
+      }).catch(function(err){
+        if (idx + 1 < urls.length) return tryUrl(idx + 1);
+        throw err;
+      });
+    }
+    return tryUrl(0).then(function(mod){
+      setStatus('AI model downloading…');
+      return withTimeout(mod.removeBackground(workBlob, {
+        model: model,
+        output: { format: 'image/png' },
+        progress: function(key, current, total){
+          if (total > 0){
+            setProgress(Math.round(current / total * 100));
+            var k = String(key || '');
+            if (/fetch/i.test(k)) setStatus('Downloading the free AI model… ' + Math.round(current / total * 100) + '%');
+            else if (/compute|inference|process/i.test(k)) setStatus('Removing the background… ' + Math.round(current / total * 100) + '%');
+            else setStatus('Working… ' + Math.round(current / total * 100) + '%');
+          }
+        }
+      }), 300000, 'AI background removal');
+    }).then(function(aiBlob){
+      setStatus('Applying the AI mask to your full photo…');
+      return loadImageFromBlob(aiBlob).then(function(aiImg){
+        var mask = document.createElement('canvas');
+        mask.width = work.width; mask.height = work.height;
+        mask.getContext('2d').drawImage(aiImg, 0, 0, mask.width, mask.height);
+        /* Resize mask to original size and composite with original pixels */
+        var mctx = mask.getContext('2d', { willReadFrequently: true });
+        var maskData = mctx.getImageData(0, 0, mask.width, mask.height);
+        var bigMask = document.createElement('canvas'); bigMask.width = origCanvas.width; bigMask.height = origCanvas.height;
+        bigMask.getContext('2d').drawImage(mask, 0, 0, bigMask.width, bigMask.height);
+        var bm = bigMask.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, bigMask.width, bigMask.height);
+        var octx = origCanvas.getContext('2d', { willReadFrequently: true });
+        var origData = octx.getImageData(0, 0, origCanvas.width, origCanvas.height);
+        var out = octx.createImageData(origCanvas.width, origCanvas.height);
+        var od = out.data, sd = origData.data, md = bm.data;
+        for (var i = 0; i < sd.length; i += 4){
+          od[i] = sd[i]; od[i+1] = sd[i+1]; od[i+2] = sd[i+2]; od[i+3] = md[i+3];
+        }
+        var c = document.createElement('canvas'); c.width = origCanvas.width; c.height = origCanvas.height;
+        c.getContext('2d').putImageData(out, 0, 0);
+        return showCutout(c);
+      });
+    });
+  }).then(function(){
+    setStatus('Background removed by AI! Download it below, or try Quick Erase if the edges need a different look.');
+  }).catch(function(err){
+    console.error(err);
+    setStatus('AI could not finish: ' + (err && err.message ? err.message : err) + ' — Quick Erase below still works offline for plain backgrounds. Try it, or try AI again on Wi-Fi.', true);
+    setProgress(0);
+  }).finally(function(){
+    removeBtn.disabled = false; quickBtn.disabled = false;
+  });
 });
 
 function downloadBlob(blob, filename){
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
   a.href = url; a.download = filename;
   document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 5000);
 }
-
-removeBtn.addEventListener('click', async () => {
-  if (!origFile) return;
-  removeBtn.disabled = true;
-  resultsEl.hidden = true;
-  setProgress(2);
-  setStatus('Starting… (first run downloads the free AI model, then it is cached)');
-  try {
-    const model = $('model').value;
-    const blob = await removeBackground(origFile, {
-      model,
-      output: { format: 'image/png' },
-      progress: (key, current, total) => {
-        if (total > 0){
-          setProgress(Math.round(current / total * 100));
-          const k = String(key || '');
-          if (/fetch/i.test(k)) setStatus('Downloading the free AI model… ' + Math.round(current / total * 100) + '%');
-          else if (/compute|inference|process/i.test(k)) setStatus('Removing the background… ' + Math.round(current / total * 100) + '%');
-          else setStatus('Working… ' + Math.round(current / total * 100) + '%');
-        }
-      }
-    });
-    cutoutBlob = blob;
-    cutoutURL = URL.createObjectURL(blob);
-    cutoutPreview.src = cutoutURL;
-    await new Promise((res, rej) => { cutoutPreview.onload = res; cutoutPreview.onerror = rej; });
-    // Measure transparency + keep pixels for tracing
-    const c = document.createElement('canvas');
-    c.width = cutoutPreview.naturalWidth; c.height = cutoutPreview.naturalHeight;
-    const ctx = c.getContext('2d', { willReadFrequently: true });
-    ctx.drawImage(cutoutPreview, 0, 0);
-    cutoutImageData = ctx.getImageData(0, 0, c.width, c.height);
-    const d = cutoutImageData.data;
-    let transparent = 0;
-    for (let i = 3; i < d.length; i += 4) if (d[i] < 128) transparent++;
-    const pct = Math.round(transparent / (d.length / 4) * 100);
-    setProgress(100);
-    setStatus('Background removed!');
-    transparencyNote.textContent = 'Transparent pixels: ' + pct + '% of the image. ' +
-      (pct === 0 ? 'Hmm — nothing looks transparent, try the other model or a different photo.' :
-       pct > 90 ? 'That is mostly empty space — the subject may be small in the frame.' :
-       'Looking good — download it below.');
-    resultsEl.hidden = false;
-  } catch (err) {
-    console.error(err);
-    setStatus('Could not remove the background: ' + (err && err.message ? err.message : err) + ' — check your connection and try again.');
-    setProgress(0);
-  } finally {
-    removeBtn.disabled = false;
-  }
-});
-
-dlPng.addEventListener('click', () => {
+dlPng.addEventListener('click', function(){
   if (!cutoutBlob) return;
   downloadBlob(cutoutBlob, origBase + '-no-bg.png');
   setStatus('Transparent PNG downloaded.');
 });
+openPng.addEventListener('click', function(){
+  if (!cutoutBlob) return;
+  window.open(URL.createObjectURL(cutoutBlob), '_blank');
+});
 
 function pathsFromSvgString(svgStr){
-  const doc = new DOMParser().parseFromString(svgStr, 'image/svg+xml');
-  return [...doc.querySelectorAll('path')].map(p => p.outerHTML).join('');
+  var doc = new DOMParser().parseFromString(svgStr, 'image/svg+xml');
+  return Array.prototype.slice.call(doc.querySelectorAll('path')).map(function(p){ return p.outerHTML; }).join('');
 }
-
 function embeddedPngSvg(dataURL, w, h){
   return '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">' +
     '<image href="' + dataURL + '" width="' + w + '" height="' + h + '" /></svg>';
 }
-
 function blobToDataURL(blob){
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => res(r.result); r.onerror = rej;
+  return new Promise(function(res, rej){
+    var r = new FileReader();
+    r.onload = function(){ res(r.result); }; r.onerror = rej;
     r.readAsDataURL(blob);
   });
 }
-
-dlSvg.addEventListener('click', async () => {
+dlSvg.addEventListener('click', function(){
   if (!cutoutImageData) return;
-  const w = cutoutImageData.width, h = cutoutImageData.height;
-  const ncolors = parseInt($('colorCount').value, 10) || 16;
+  var w = cutoutImageData.width, h = cutoutImageData.height;
+  var ncolors = parseInt($('colorCount').value, 10) || 16;
   setStatus('Tracing your cutout into vector paths…');
   svgNote.textContent = '';
-  let svgStr = null, traced = false;
+  var svgStr = null, traced = false;
   try {
-    const ok = await loadTracer();
-    if (ok && window.ImageTracer){
-      // 1) Silhouette from the alpha channel (opaque = black, transparent = white)
-      const mask = new ImageData(w, h);
-      const src = cutoutImageData.data, md = mask.data;
-      for (let i = 0; i < src.length; i += 4){
-        const op = src[i + 3] >= 128;
+    if (window.ImageTracer){
+      var mask = new ImageData(w, h);
+      var src = cutoutImageData.data, md = mask.data;
+      for (var i = 0; i < src.length; i += 4){
+        var op = src[i + 3] >= 128;
         md[i] = op ? 0 : 255; md[i + 1] = op ? 0 : 255; md[i + 2] = op ? 0 : 255; md[i + 3] = 255;
       }
-      const maskData = window.ImageTracer.imagedataToTracedata(mask, { numberofcolors: 2, ltres: 1, qtres: 1, pathomit: 8, scale: 1 });
-      let blackIdx = -1;
-      // Palette entries are {r,g,b,a} objects in imagetracer 1.2.6 (not [r,g,b,a] arrays) — read both shapes.
-      (maskData.palette || []).forEach((c, i) => {
-        const r = c.r !== undefined ? c.r : c[0];
-        const g = c.g !== undefined ? c.g : c[1];
-        const b = c.b !== undefined ? c.b : c[2];
+      var maskData = window.ImageTracer.imagedataToTracedata(mask, { numberofcolors: 2, ltres: 1, qtres: 1, pathomit: 8, scale: 1 });
+      var blackIdx = -1;
+      (maskData.palette || []).forEach(function(c, i){
+        var r = c.r !== undefined ? c.r : c[0];
+        var g = c.g !== undefined ? c.g : c[1];
+        var b = c.b !== undefined ? c.b : c[2];
         if (r === 0 && g === 0 && b === 0) blackIdx = i;
       });
-      // 2) Full-color trace of the cutout
-      const colorSvg = window.ImageTracer.imagedataToSVG(cutoutImageData, { numberofcolors: ncolors, ltres: 1, qtres: 1, pathomit: 8, scale: 1 });
-      const colorPaths = pathsFromSvgString(colorSvg);
+      var colorSvg = window.ImageTracer.imagedataToSVG(cutoutImageData, { numberofcolors: ncolors, ltres: 1, qtres: 1, pathomit: 8, scale: 1 });
+      var colorPaths = pathsFromSvgString(colorSvg);
       if (blackIdx >= 0 && maskData.layers && maskData.layers[blackIdx]){
-        const clipSvg = window.ImageTracer.getsvgstring(
+        var clipSvg = window.ImageTracer.getsvgstring(
           { width: w, height: h, palette: [maskData.palette[blackIdx]], layers: [maskData.layers[blackIdx]] },
           { scale: 1 }
         );
-        const clipPaths = pathsFromSvgString(clipSvg);
+        var clipPaths = pathsFromSvgString(clipSvg);
         if (clipPaths && colorPaths){
           svgStr = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">' +
             '<defs><clipPath id="cutoutClip">' + clipPaths + '</clipPath></defs>' +
@@ -1531,22 +1711,35 @@ dlSvg.addEventListener('click', async () => {
     console.error('Trace failed, falling back to embedded PNG SVG:', err);
   }
   if (!svgStr){
-    // Fallback: a real .svg that embeds the transparent PNG — still transparent and scalable in most apps.
-    const dataURL = await blobToDataURL(cutoutBlob);
-    svgStr = embeddedPngSvg(dataURL, w, h);
-    svgNote.textContent = 'Note: true vector tracing did not work for this image, so this SVG embeds your transparent PNG instead of traced paths. It is still transparent — try the button again if you want the traced version.';
+    blobToDataURL(cutoutBlob).then(function(dataURL){
+      var s = embeddedPngSvg(dataURL, w, h);
+      svgPreview.innerHTML = s;
+      downloadBlob(new Blob([s], { type: 'image/svg+xml' }), origBase + '-no-bg.svg');
+      svgNote.textContent = 'Note: true vector tracing did not work for this image, so this SVG embeds your transparent PNG instead of traced paths. It is still transparent.';
+      setStatus('SVG downloaded (embedded PNG version).');
+    });
   } else {
+    svgPreview.innerHTML = svgStr;
+    downloadBlob(new Blob([svgStr], { type: 'image/svg+xml' }), origBase + '-no-bg.svg');
     svgNote.textContent = 'Traced vector with a transparent background — scales to any size without getting blurry. Photos trace chunkier than logos; for crisp logo work, use the Simple setting.';
+    setStatus('SVG vector downloaded.');
   }
-  svgPreview.innerHTML = svgStr;
-  downloadBlob(new Blob([svgStr], { type: 'image/svg+xml' }), origBase + '-no-bg.svg');
-  setStatus(traced ? 'SVG vector downloaded.' : 'SVG downloaded (embedded PNG version).');
+});
+
+$('freshBtn').addEventListener('click', function(){
+  if ('serviceWorker' in navigator){
+    navigator.serviceWorker.getRegistrations().then(function(regs){
+      return Promise.all(regs.map(function(r){ return r.unregister(); }));
+    }).then(function(){ location.reload(); });
+  } else {
+    location.reload();
+  }
 });
 </script>
 <script>
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('./sw.js').catch(function(){});
   });
 }
 </script>
