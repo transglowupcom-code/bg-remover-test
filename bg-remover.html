@@ -1500,13 +1500,19 @@ dlSvg.addEventListener('click', async () => {
       }
       const maskData = window.ImageTracer.imagedataToTracedata(mask, { numberofcolors: 2, ltres: 1, qtres: 1, pathomit: 8, scale: 1 });
       let blackIdx = -1;
-      (maskData.palette || []).forEach((c, i) => { if (c[0] === 0 && c[1] === 0 && c[2] === 0) blackIdx = i; });
+      // Palette entries are {r,g,b,a} objects in imagetracer 1.2.6 (not [r,g,b,a] arrays) — read both shapes.
+      (maskData.palette || []).forEach((c, i) => {
+        const r = c.r !== undefined ? c.r : c[0];
+        const g = c.g !== undefined ? c.g : c[1];
+        const b = c.b !== undefined ? c.b : c[2];
+        if (r === 0 && g === 0 && b === 0) blackIdx = i;
+      });
       // 2) Full-color trace of the cutout
       const colorSvg = window.ImageTracer.imagedataToSVG(cutoutImageData, { numberofcolors: ncolors, ltres: 1, qtres: 1, pathomit: 8, scale: 1 });
       const colorPaths = pathsFromSvgString(colorSvg);
       if (blackIdx >= 0 && maskData.layers && maskData.layers[blackIdx]){
         const clipSvg = window.ImageTracer.getsvgstring(
-          { width: w, height: h, palette: [[0, 0, 0, 255]], layers: [maskData.layers[blackIdx]] },
+          { width: w, height: h, palette: [maskData.palette[blackIdx]], layers: [maskData.layers[blackIdx]] },
           { scale: 1 }
         );
         const clipPaths = pathsFromSvgString(clipSvg);
@@ -1525,7 +1531,7 @@ dlSvg.addEventListener('click', async () => {
     // Fallback: a real .svg that embeds the transparent PNG — still transparent and scalable in most apps.
     const dataURL = await blobToDataURL(cutoutBlob);
     svgStr = embeddedPngSvg(dataURL, w, h);
-    svgNote.textContent = 'Note: the vector tracer could not load, so this SVG embeds your transparent PNG instead of traced paths. It is still transparent — try the button again if you want the traced version.';
+    svgNote.textContent = 'Note: true vector tracing did not work for this image, so this SVG embeds your transparent PNG instead of traced paths. It is still transparent — try the button again if you want the traced version.';
   } else {
     svgNote.textContent = 'Traced vector with a transparent background — scales to any size without getting blurry. Photos trace chunkier than logos; for crisp logo work, use the Simple setting.';
   }
