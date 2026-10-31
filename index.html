@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ever's Background Eraser v2.3 — transparent PNG + SVG</title>
+<title>Ever's Background Eraser v2.4 — transparent PNG + SVG</title>
 <meta name="description" content="Remove the background from any photo, right on your device. Free, no account, nothing uploads. Works even if the AI model cannot load, thanks to offline Quick Erase.">
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#1e1033">
@@ -61,7 +61,7 @@
 </head>
 <body>
 <div class="wrap">
-  <span class="badge">v2.3 — Sketch / cartoon erase added: for cartoons with colorful backgrounds</span>
+  <span class="badge">v2.4 — Smart erase added: edge detection that keeps the coherent picture and drops dead space</span>
   <h1>🫧 Ever's <span>Background Eraser</span></h1>
   <p class="sub">Drop in a photo, erase the background, download a transparent PNG or a real vector SVG. Free, no account, and your images never leave this device.</p>
   <ol class="steps">
@@ -101,6 +101,7 @@
     <button type="button" class="primary" id="removeBtn" disabled>✨ Remove background (AI)</button>
     <button type="button" class="darkbtn" id="quickBtn" disabled>🎨 Quick Erase (offline)</button>
     <button type="button" class="darkbtn" id="illustBtn" disabled>🖌️ Sketch / cartoon erase (offline)</button>
+    <button type="button" class="darkbtn" id="smartBtn" disabled>🔍 Smart erase (edge detect, offline)</button>
   </div>
 
   <div class="pickrow">
@@ -1382,7 +1383,7 @@ if(typeof define === 'function' && define.amd){
 var $ = function(id){ return document.getElementById(id); };
 var dropzone = $('dropzone'), fileInput = $('fileInput'), pickBtn = $('pickBtn');
 var origPreview = $('origPreview'), cutoutPreview = $('cutoutPreview'), cutoutWrap = $('cutoutWrap');
-var removeBtn = $('removeBtn'), quickBtn = $('quickBtn'), cornerBtn = $('cornerBtn'), illustBtn = $('illustBtn');
+var removeBtn = $('removeBtn'), quickBtn = $('quickBtn'), cornerBtn = $('cornerBtn'), illustBtn = $('illustBtn'), smartBtn = $('smartBtn');
 var statusEl = $('status'), progressBar = $('progressBar');
 var resultsEl = $('results'), transparencyNote = $('transparencyNote');
 var dlPng = $('dlPng'), dlSvg = $('dlSvg'), openPng = $('openPng'), svgNote = $('svgNote'), svgPreview = $('svgPreview');
@@ -1467,7 +1468,7 @@ function handleFile(file){
     pickedColor = null; swatch.style.background = 'transparent';
     pickedLabel.textContent = 'Not picked yet — tap your photo, or use the corner color.';
     $('fileName').textContent = 'Selected: ' + file.name + ' (' + origCanvas.width + '×' + origCanvas.height + 'px for processing)';
-    removeBtn.disabled = false; quickBtn.disabled = false; cornerBtn.disabled = false; illustBtn.disabled = false;
+    removeBtn.disabled = false; quickBtn.disabled = false; cornerBtn.disabled = false; illustBtn.disabled = false; smartBtn.disabled = false;
     setProgress(0);
     setStatus('Photo loaded. Tap “Remove background (AI)” for busy photos, Quick Erase for plain backgrounds, or Illustration erase for cartoons with a colorful background.');
   }).catch(function(err){
@@ -1694,6 +1695,171 @@ function runIllustrationErase(){
 }
 illustBtn.addEventListener('click', runIllustrationErase);
 
+function runSmartErase(){
+  if (!origCanvas){ setStatus('Pick a photo first.', true); return; }
+  setStatus('Smart erase working — this runs offline. It scans for edges, treats everything connected to the photo edges through gaps in those edges as dead space, and keeps the coherent picture in the middle. No colour guessing, so flat stickers and cartoons survive it.');
+  setProgress(30);
+  setTimeout(function(){
+    var w = origCanvas.width, h = origCanvas.height;
+    var octx = origCanvas.getContext('2d', { willReadFrequently: true });
+    var src = octx.getImageData(0, 0, w, h);
+    var sd = src.data;
+    /* Edge map: Sobel on brightness, plus any sharp colour step between neighbours.
+       A smooth background (even a shaded or grey one) has almost no edges, so the
+       flood fill below walks straight through it. A sticker or cartoon is ringed
+       by strong edges, so the fill stops at its outline and the inside is kept
+       whole — pink fill, white lettering, black shapes and all. This is why the
+       colour modes fail here: Quick Erase needs one background colour, and the
+       sketch mode needs a colourful background. This mode needs neither. */
+    var gray = new Float32Array(w * h);
+    for (var i = 0, p = 0; i < sd.length; i += 4, p++){
+      gray[p] = 0.299 * sd[i] + 0.587 * sd[i+1] + 0.114 * sd[i+2];
+    }
+    var edge = new Uint8Array(w * h);
+    for (var y = 1; y < h - 1; y++){
+      for (var x = 1; x < w - 1; x++){
+        var gx = -gray[(y-1)*w+x-1] - 2*gray[y*w+x-1] - gray[(y+1)*w+x-1]
+               + gray[(y-1)*w+x+1] + 2*gray[y*w+x+1] + gray[(y+1)*w+x+1];
+        var gy = -gray[(y-1)*w+x-1] - 2*gray[(y-1)*w+x] - gray[(y-1)*w+x+1]
+               + gray[(y+1)*w+x-1] + 2*gray[(y+1)*w+x] + gray[(y+1)*w+x+1];
+        if (Math.abs(gx) + Math.abs(gy) > 112) edge[y*w+x] = 1;
+      }
+    }
+    for (var yy = 0; yy < h; yy++){
+      for (var xx = 0; xx < w; xx++){
+        var p0 = yy * w + xx;
+        if (xx + 1 < w){
+          var a = p0 * 4, b = (p0 + 1) * 4;
+          if (Math.max(Math.abs(sd[a]-sd[b]), Math.abs(sd[a+1]-sd[b+1]), Math.abs(sd[a+2]-sd[b+2])) > 45) edge[p0] = 1;
+        }
+        if (yy + 1 < h){
+          var c = p0 * 4, d = (p0 + w) * 4;
+          if (Math.max(Math.abs(sd[c]-sd[d]), Math.abs(sd[c+1]-sd[d+1]), Math.abs(sd[c+2]-sd[d+2])) > 45) edge[p0] = 1;
+        }
+      }
+    }
+    /* Dead space = everything reachable from the photo border without crossing an edge. */
+    var removed = new Uint8Array(w * h);
+    var stack = [];
+    function seedSmart(x, y){
+      var idx = y * w + x;
+      if (!edge[idx] && !removed[idx]){ removed[idx] = 1; stack.push(idx); }
+    }
+    for (var x = 0; x < w; x++){ seedSmart(x, 0); seedSmart(x, h - 1); }
+    for (var y = 0; y < h; y++){ seedSmart(0, y); seedSmart(w - 1, y); }
+    while (stack.length){
+      var cur = stack.pop();
+      var cx = cur % w, cy = Math.floor(cur / w);
+      var nb = [];
+      if (cx > 0) nb.push(cur - 1);
+      if (cx < w - 1) nb.push(cur + 1);
+      if (cy > 0) nb.push(cur - w);
+      if (cy < h - 1) nb.push(cur + w);
+      for (var n = 0; n < nb.length; n++){
+        var ni = nb[n];
+        if (!edge[ni] && !removed[ni]){ removed[ni] = 1; stack.push(ni); }
+      }
+    }
+    /* Despeckle: keep only foreground blobs of at least 0.2% of the picture.
+       The main picture is one huge blob; stray outlines (a hand edge, a screenshot
+       icon ring) are tiny fragments and get dropped. */
+    var fg = new Uint8Array(w * h);
+    for (var k = 0; k < fg.length; k++) fg[k] = removed[k] ? 0 : 1;
+    var seen = new Uint8Array(w * h);
+    var minBlob = Math.max(800, Math.round(w * h * 0.002));
+    var keep = new Uint8Array(w * h);
+    for (var s = 0; s < fg.length; s++){
+      if (!fg[s] || seen[s]) continue;
+      var comp = [], st = [s]; seen[s] = 1;
+      while (st.length){
+        var cc = st.pop(); comp.push(cc);
+        var ccx = cc % w, ccy = Math.floor(cc / w);
+        var nn = [];
+        if (ccx > 0) nn.push(cc - 1);
+        if (ccx < w - 1) nn.push(cc + 1);
+        if (ccy > 0) nn.push(cc - w);
+        if (ccy < h - 1) nn.push(cc + w);
+        for (var m = 0; m < nn.length; m++){
+          if (fg[nn[m]] && !seen[nn[m]]){ seen[nn[m]] = 1; st.push(nn[m]); }
+        }
+      }
+      if (comp.length >= minBlob){
+        for (var t = 0; t < comp.length; t++) keep[comp[t]] = 1;
+      }
+    }
+    for (var r = 0; r < fg.length; r++) removed[r] = keep[r] ? 0 : 1;
+    /* Opening (shrink 1px, grow 1px): wipes out hairline edge fragments while
+       leaving the real picture essentially untouched. */
+    function erode4(mask){
+      var out = new Uint8Array(w * h);
+      for (var ey = 0; ey < h; ey++){
+        for (var ex = 0; ex < w; ex++){
+          var ei = ey * w + ex;
+          if (!mask[ei]) continue;
+          var ok = true;
+          var nb2 = [];
+          if (ex > 0) nb2.push(ei - 1);
+          if (ex < w - 1) nb2.push(ei + 1);
+          if (ey > 0) nb2.push(ei - w);
+          if (ey < h - 1) nb2.push(ei + w);
+          for (var q = 0; q < nb2.length; q++) if (!mask[nb2[q]]) ok = false;
+          if (ok) out[ei] = 1;
+        }
+      }
+      return out;
+    }
+    function dilate4(mask){
+      var out = new Uint8Array(w * h);
+      for (var ey = 0; ey < h; ey++){
+        for (var ex = 0; ex < w; ex++){
+          var ei = ey * w + ex;
+          if (!mask[ei]) continue;
+          out[ei] = 1;
+          if (ex > 0) out[ei - 1] = 1;
+          if (ex < w - 1) out[ei + 1] = 1;
+          if (ey > 0) out[ei - w] = 1;
+          if (ey < h - 1) out[ei + w] = 1;
+        }
+      }
+      return out;
+    }
+    var fgAfter = new Uint8Array(w * h);
+    for (var f = 0; f < fgAfter.length; f++) fgAfter[f] = removed[f] ? 0 : 1;
+    fgAfter = dilate4(erode4(fgAfter));
+    for (var g = 0; g < fgAfter.length; g++) removed[g] = fgAfter[g] ? 0 : 1;
+    var removedCount = 0;
+    for (var z = 0; z < removed.length; z++) if (removed[z]) removedCount++;
+    var out = octx.createImageData(w, h);
+    var od = out.data;
+    for (var q2 = 0; q2 < sd.length; q2 += 4){
+      var pix = q2 / 4;
+      var alpha = 255;
+      if (removed[pix]) alpha = 0;
+      else {
+        var px = pix % w, py = Math.floor(pix / w);
+        if ((px > 0 && removed[pix - 1]) || (px < w - 1 && removed[pix + 1]) ||
+            (py > 0 && removed[pix - w]) || (py < h - 1 && removed[pix + w])) alpha = 180;
+      }
+      od[q2] = sd[q2]; od[q2+1] = sd[q2+1]; od[q2+2] = sd[q2+2]; od[q2+3] = alpha;
+    }
+    var c = document.createElement('canvas'); c.width = w; c.height = h;
+    c.getContext('2d').putImageData(out, 0, 0);
+    setProgress(80);
+    var pctRemoved = Math.round(removedCount / (w * h) * 100);
+    showCutout(c).then(function(){
+      if (pctRemoved > 90){
+        setStatus('Smart erase removed ' + pctRemoved + '% — almost everything. The picture may have no clear outline holding the subject together. Try AI for photos instead.', true);
+      } else if (pctRemoved < 5){
+        setStatus('Smart erase removed only ' + pctRemoved + '% — no clear edge outline was found. Try Quick Erase for a plain background, or AI for photos.', true);
+      } else {
+        setStatus('Smart erase done! Removed ' + pctRemoved + '% of dead space and kept the coherent picture. Download it below, or run it again — it always re-runs from your original photo.');
+      }
+    });
+  }, 30);
+}
+smartBtn.addEventListener('click', runSmartErase);
+
+
 function withTimeout(promise, ms, label){
   return Promise.race([
     promise,
@@ -1702,7 +1868,7 @@ function withTimeout(promise, ms, label){
 }
 removeBtn.addEventListener('click', function(){
   if (!origCanvas) return;
-  removeBtn.disabled = true; quickBtn.disabled = true; illustBtn.disabled = true;
+  removeBtn.disabled = true; quickBtn.disabled = true; illustBtn.disabled = true; smartBtn.disabled = true;
   resultsEl.hidden = true;
   setProgress(2);
   setStatus('AI starting… First run downloads the free model (about 40MB for Faster), then it is cached. If this fails, Quick Erase below still works.');
@@ -1775,7 +1941,7 @@ removeBtn.addEventListener('click', function(){
     setStatus('AI could not finish: ' + (err && err.message ? err.message : err) + ' — Quick Erase below still works offline for plain backgrounds. Try it, or try AI again on Wi-Fi.', true);
     setProgress(0);
   }).finally(function(){
-    removeBtn.disabled = false; quickBtn.disabled = false; illustBtn.disabled = false;
+    removeBtn.disabled = false; quickBtn.disabled = false; illustBtn.disabled = false; smartBtn.disabled = false;
   });
 });
 
