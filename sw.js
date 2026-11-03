@@ -1,5 +1,5 @@
-const CACHE = 'bg-eraser-v2-4';
-const SHELL = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE = 'bg-eraser-v2-5';
+const SHELL = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png', './test-sticker.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
 });

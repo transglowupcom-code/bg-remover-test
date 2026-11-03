@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ever's Background Eraser v2.4 — transparent PNG + SVG</title>
+<title>Ever's Background Eraser v2.5 — transparent PNG + SVG</title>
 <meta name="description" content="Remove the background from any photo, right on your device. Free, no account, nothing uploads. Works even if the AI model cannot load, thanks to offline Quick Erase.">
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#1e1033">
@@ -57,11 +57,15 @@
   details summary{cursor:pointer;font-weight:800}
   footer{margin-top:30px;color:#9d8bb0;font-size:.85rem;line-height:1.5}
   footer a{color:#ff8ac2}
+.selftest{margin-top:22px;background:#121e3a;border:1px solid #3a4a6b;border-radius:20px;padding:16px 20px}
+.selftest h2{margin:0 0 8px}
+#selfTestPreview{margin-top:12px;max-width:320px}
+#selfTestPreview img{width:100%;display:block}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <span class="badge">v2.4 — Smart erase added: edge detection that keeps the coherent picture and drops dead space</span>
+  <span class="badge">v2.5 — Self-test added: one tap proves Smart erase works on your phone</span>
   <h1>🫧 Ever's <span>Background Eraser</span></h1>
   <p class="sub">Drop in a photo, erase the background, download a transparent PNG or a real vector SVG. Free, no account, and your images never leave this device.</p>
   <ol class="steps">
@@ -102,6 +106,14 @@
     <button type="button" class="darkbtn" id="quickBtn" disabled>🎨 Quick Erase (offline)</button>
     <button type="button" class="darkbtn" id="illustBtn" disabled>🖌️ Sketch / cartoon erase (offline)</button>
     <button type="button" class="darkbtn" id="smartBtn" disabled>🔍 Smart erase (edge detect, offline)</button>
+  </div>
+
+  <div class="selftest" id="selfTestBox">
+    <h2>🧪 Self-test: is this the new version?</h2>
+    <p class="note">One tap runs Smart erase on the built-in sticker test photo — the same flat sticker this version was proven on. If it passes, your installed copy is up to date and Smart erase works on your phone. If this still looks like the old version, use Reload fresh below first, then run the test again.</p>
+    <button type="button" class="primary" id="selfTestBtn">🧪 Run self-test</button>
+    <p id="selfTestStatus" class="note" aria-live="polite"></p>
+    <div id="selfTestPreview" class="checker" hidden><img id="selfTestImg" alt="Self-test cutout"></div>
   </div>
 
   <div class="pickrow">
@@ -1695,13 +1707,10 @@ function runIllustrationErase(){
 }
 illustBtn.addEventListener('click', runIllustrationErase);
 
-function runSmartErase(){
-  if (!origCanvas){ setStatus('Pick a photo first.', true); return; }
-  setStatus('Smart erase working — this runs offline. It scans for edges, treats everything connected to the photo edges through gaps in those edges as dead space, and keeps the coherent picture in the middle. No colour guessing, so flat stickers and cartoons survive it.');
-  setProgress(30);
+function runSmartEraseOn(srcCanvas, onDone){
   setTimeout(function(){
-    var w = origCanvas.width, h = origCanvas.height;
-    var octx = origCanvas.getContext('2d', { willReadFrequently: true });
+    var w = srcCanvas.width, h = srcCanvas.height;
+    var octx = srcCanvas.getContext('2d', { willReadFrequently: true });
     var src = octx.getImageData(0, 0, w, h);
     var sd = src.data;
     /* Edge map: Sobel on brightness, plus any sharp colour step between neighbours.
@@ -1846,6 +1855,14 @@ function runSmartErase(){
     c.getContext('2d').putImageData(out, 0, 0);
     setProgress(80);
     var pctRemoved = Math.round(removedCount / (w * h) * 100);
+    onDone(pctRemoved, c);
+  }, 30);
+}
+function runSmartErase(){
+  if (!origCanvas){ setStatus('Pick a photo first.', true); return; }
+  setStatus('Smart erase working — this runs offline. It scans for edges, treats everything connected to the photo edges through gaps in those edges as dead space, and keeps the coherent picture in the middle. No colour guessing, so flat stickers and cartoons survive it.');
+  setProgress(30);
+  runSmartEraseOn(origCanvas, function(pctRemoved, c){
     showCutout(c).then(function(){
       if (pctRemoved > 90){
         setStatus('Smart erase removed ' + pctRemoved + '% — almost everything. The picture may have no clear outline holding the subject together. Try AI for photos instead.', true);
@@ -1855,9 +1872,38 @@ function runSmartErase(){
         setStatus('Smart erase done! Removed ' + pctRemoved + '% of dead space and kept the coherent picture. Download it below, or run it again — it always re-runs from your original photo.');
       }
     });
-  }, 30);
+  });
 }
 smartBtn.addEventListener('click', runSmartErase);
+
+var selfTestBtn = document.getElementById('selfTestBtn');
+var selfTestStatus = document.getElementById('selfTestStatus');
+var selfTestPreview = document.getElementById('selfTestPreview');
+var selfTestImg = document.getElementById('selfTestImg');
+if (selfTestBtn){
+  selfTestBtn.addEventListener('click', function(){
+    selfTestStatus.textContent = 'Self-test running — Smart erase on the built-in sticker photo…';
+    selfTestPreview.hidden = true;
+    var img = new Image();
+    img.onload = function(){
+      var c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+      c.getContext('2d').drawImage(img, 0, 0);
+      runSmartEraseOn(c, function(pct, cut){
+        selfTestImg.src = cut.toDataURL('image/png');
+        selfTestPreview.hidden = false;
+        if (pct >= 5 && pct <= 90){
+          selfTestStatus.textContent = 'PASS — Smart erase works on your phone. It removed ' + pct + '% of dead space and kept the sticker picture intact. Your installed copy is up to date (v2.5).';
+        } else if (pct > 90){
+          selfTestStatus.textContent = 'FAIL — Smart erase removed ' + pct + '% — almost everything, so the test picture did not survive. Try Reload fresh, then run the test again; if it still fails, share what it showed.';
+        } else {
+          selfTestStatus.textContent = 'FAIL — Smart erase removed only ' + pct + '% — no clear edge outline was found. Try Reload fresh, then run the test again; if it still fails, share what it showed.';
+        }
+      });
+    };
+    img.onerror = function(){ selfTestStatus.textContent = 'FAIL — the built-in test photo did not load. Try Reload fresh, then run the test again.'; };
+    img.src = 'test-sticker.png';
+  });
+}
 
 
 function withTimeout(promise, ms, label){
